@@ -33,6 +33,8 @@ export function loadConfig(env = process.env) {
     maxAuthAgeSeconds: number('MAX_AUTH_AGE_SECONDS', 300),
     userHeader: (env.USER_HEADER ?? 'remote-user').toLowerCase(),
     authTimeHeader: (env.AUTH_TIME_HEADER ?? 'remote-auth-time').toLowerCase(),
+    jellyfinUrl: env.JELLYFIN_URL ?? '',
+    jellyfinApiKey: env.JELLYFIN_API_KEY ?? '',
     appName: env.APP_NAME ?? 'File server password',
     helpUrl: env.HELP_URL ?? '',
   });

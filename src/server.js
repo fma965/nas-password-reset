@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { createCooldown, createCsrf, identify, sameOrigin } from './guard.js';
 import { MAX_LENGTH, checkPassword } from './policy.js';
 import { render } from './page.js';
+import { JellyfinRefusedError, setJellyfinPassword } from './jellyfin.js';
 import { RefusedError, resetPassword } from './truenas.js';
 
 const MAX_BODY = 2048;
@@ -35,6 +36,10 @@ export function createApp(config, deps = {}) {
     deps.reset ??
     ((username, password) =>
       resetPassword({ url: config.truenasUrl, apiKey: config.truenasApiKey, username, password, insecure: config.truenasInsecure }));
+  const jellyfinEnabled = deps.jellyfinEnabled ?? Boolean(config.jellyfinUrl && config.jellyfinApiKey);
+  const setJellyfin =
+    deps.setJellyfin ??
+    ((username, password) => setJellyfinPassword({ url: config.jellyfinUrl, apiKey: config.jellyfinApiKey, username, password }));
   const log = deps.log ?? ((entry) => console.log(JSON.stringify({ time: new Date().toISOString(), ...entry })));
   const now = deps.now ?? (() => Date.now());
 
@@ -66,7 +71,7 @@ export function createApp(config, deps = {}) {
         if (!who.ok) return denied(res, who);
         const wait = cooldown.remaining(who.user, now());
         if (wait > 0) return send(res, 200, 'cooldown', { seconds: wait });
-        return send(res, 200, 'ready', { user: who.user, nasUser: who.nasUser, token: csrf.issue(who.user, now()), maxLength: MAX_LENGTH });
+        return send(res, 200, 'ready', { user: who.user, nasUser: who.nasUser, token: csrf.issue(who.user, now()), maxLength: MAX_LENGTH, jellyfin: jellyfinEnabled });
       }
       if (req.method === 'POST' && path === '/reset') {
         if (!sameOrigin(req.headers)) return send(res, 403, 'failed');
@@ -84,7 +89,7 @@ export function createApp(config, deps = {}) {
           if (password !== (form.get('confirm') ?? '')) problems.unshift('The two passwords do not match');
           if (problems.length > 0) {
             // Never echo a password back: the form comes back empty with the reasons.
-            return send(res, 422, 'ready', { user: who.user, nasUser: who.nasUser, token: csrf.issue(who.user, now()), maxLength: MAX_LENGTH, problems });
+            return send(res, 422, 'ready', { user: who.user, nasUser: who.nasUser, token: csrf.issue(who.user, now()), maxLength: MAX_LENGTH, jellyfin: jellyfinEnabled, problems });
           }
           chosen = password;
         }
@@ -94,7 +99,20 @@ export function createApp(config, deps = {}) {
           const password = await reset(who.nasUser, chosen);
           cooldown.mark(who.user, now());
           log({ event: 'reset', user: who.user, account: who.nasUser, mode, result: 'ok' });
-          return mode === 'custom' ? send(res, 200, 'done-custom', { nasUser: who.nasUser }) : send(res, 200, 'done', { nasUser: who.nasUser, password });
+          // The file server password is changed. Optionally set the same one on the matching Jellyfin account.
+          let jellyfin = 'skipped';
+          if (jellyfinEnabled && form.get('jellyfin') === 'on') {
+            try {
+              await setJellyfin(who.user, chosen ?? password);
+              jellyfin = 'ok';
+            } catch (error) {
+              jellyfin = error instanceof JellyfinRefusedError ? 'refused' : 'failed';
+            }
+            log({ event: 'jellyfin', user: who.user, result: jellyfin });
+          }
+          return mode === 'custom'
+            ? send(res, 200, 'done-custom', { nasUser: who.nasUser, jellyfin })
+            : send(res, 200, 'done', { nasUser: who.nasUser, password, jellyfin });
         } catch (error) {
           const refused = error instanceof RefusedError;
           log({ event: 'reset', user: who.user, account: who.nasUser, mode, result: refused ? 'refused' : 'failed', reason: error.message });

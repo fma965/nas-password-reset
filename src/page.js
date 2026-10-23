@@ -23,6 +23,16 @@ function shell(title, body, nonce, script = '') {
   }</body></html>`;
 }
 
+const jellyfinBox = () =>
+  '<div class="row"><label><input type="checkbox" name="jellyfin" checked> Also use it for my Jellyfin account</label></div>';
+
+const jellyfinLine = (state) =>
+  ({
+    ok: '<p>Your Jellyfin password is now the same.</p>',
+    failed: '<p class="note">The file server password changed, but Jellyfin could not be updated. Try again in a few minutes, or ask the person who runs the server.</p>',
+    refused: '<p class="note">The file server password changed. Your Jellyfin account cannot be changed from here.</p>',
+  })[state] ?? '';
+
 const help = (config) => (config.helpUrl ? `<p class="muted"><a href="${esc(config.helpUrl)}">Back to the guides</a></p>` : '');
 
 // state: ready | stale-login | not-allowed | no-user | cooldown | done | refused | failed
@@ -45,12 +55,14 @@ ${problems}
 <label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
 <label for="confirm">Confirm new password</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
 <div class="row"><label><input type="checkbox" id="show"> Show what I type</label></div>
+${ctx.jellyfin ? jellyfinBox() : ''}
 <ul class="muted">${REQUIREMENTS.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
 <button type="submit">Set my password</button></form>
 <hr>
 <h2>Or have one made for you</h2>
 <p class="muted">A long random password, shown once. Save it in your password manager.</p>
-<form method="post" action="/reset"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="random"><button type="submit">Generate a password for me</button></form>
+<form method="post" action="/reset"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="random">
+${ctx.jellyfin ? jellyfinBox() : ''}<button type="submit">Generate a password for me</button></form>
 ${help(config)}`,
         nonce,
         `document.getElementById('show').onchange=(e)=>{for(const id of ['password','confirm'])document.getElementById(id).type=e.target.checked?'text':'password'}`,
@@ -74,6 +86,7 @@ ${help(config)}`,
         title,
         `<h1>Your new password</h1><p>Use it with the user name <strong>${esc(ctx.nasUser)}</strong>. It is shown <strong>once</strong>: save it in your password manager now.</p>
 <code id="pw">${esc(ctx.password)}</code><button type="button" id="copy">Copy</button>
+${jellyfinLine(ctx.jellyfin)}
 <p class="muted">This page is not stored. Reloading it will not show the password again.</p>${help(config)}`,
         nonce,
         `document.getElementById('copy').onclick=async(e)=>{try{await navigator.clipboard.writeText(document.getElementById('pw').textContent);e.target.textContent='Copied'}catch{e.target.textContent='Select and copy it'}}`,
@@ -81,7 +94,7 @@ ${help(config)}`,
     case 'done-custom':
       return shell(
         title,
-        `<h1>Password changed</h1><p>Your file server password for <strong>${esc(ctx.nasUser)}</strong> is now the one you chose. Use it the next time the network drive asks.</p>${help(config)}`,
+        `<h1>Password changed</h1><p>Your file server password for <strong>${esc(ctx.nasUser)}</strong> is now the one you chose. Use it the next time the network drive asks.</p>${jellyfinLine(ctx.jellyfin)}${help(config)}`,
         nonce,
       );
     case 'refused':

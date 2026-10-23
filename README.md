@@ -14,6 +14,14 @@ dependencies beyond Node.js and is meant to sit behind a reverse proxy that does
    the TrueNAS API with a service key and runs `user.update` for the mapped account: with the chosen `password`, or
    with `random_password: true`, in which case TrueNAS generates the password and the page shows it once.
 
+## Optional: the matching Jellyfin account
+
+Set `JELLYFIN_URL` and `JELLYFIN_API_KEY` and the page offers a ticked box, "Also use it for my Jellyfin account". After the
+file server change succeeds, the same password (chosen or generated) is set on the Jellyfin account whose name equals the
+sign-in name. Administrator and disabled Jellyfin accounts are refused. If Jellyfin fails, the file server password has
+still changed and the page says so. **Jellyfin API keys are not scoped: the key is a full Jellyfin administrator**, which is
+why this is off unless you configure it.
+
 ## Password rules (a chosen password)
 
 At least 14 characters mixing three of lower case, upper case, numbers and symbols, **or** a passphrase of 20 or more
@@ -42,6 +50,7 @@ apply its own rules on top.
 | `USER_MAP` | required | `andrew,ash` or `signin-name=nas-account,...`: who can reset which account |
 | `TRUENAS_URL` | `wss://nas.main.internal/api/current` | The TrueNAS websocket API |
 | `TRUENAS_INSECURE` | `false` | `true` to accept the NAS's self-signed certificate (disables verification process-wide; only talk to the NAS) |
+| `JELLYFIN_URL`, `JELLYFIN_API_KEY` | off | Turn on the Jellyfin option (see above) |
 | `COOLDOWN_SECONDS` | `600` | Minimum time between resets of one account |
 | `MAX_AUTH_AGE_SECONDS` | `300` | How recent the sign-in must be |
 | `USER_HEADER`, `AUTH_TIME_HEADER` | `remote-user`, `remote-auth-time` | Header names |

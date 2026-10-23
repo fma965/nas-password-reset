@@ -17,13 +17,14 @@ const config = {
   userMap: parseUserMap('andrew,ash'),
 };
 
-async function start(reset) {
+async function start(reset, extra = {}) {
   const logs = [];
   const resets = [];
   const lastPassword = { value: undefined };
   const handler = createApp(config, {
     now: () => NOW,
     log: (entry) => logs.push(JSON.stringify(entry)),
+    ...extra,
     reset: async (account, password) => {
       resets.push(password === undefined ? account : `${account}:custom`);
       lastPassword.value = password;
@@ -164,6 +165,75 @@ test('a password that contains the user name is refused', async () => {
     assert.equal(res.status, 422);
     assert.match(await res.text(), /user name/);
     assert.equal(t.resets.length, 0);
+  } finally {
+    t.close();
+  }
+});
+
+test('with Jellyfin switched on, the same password is set there too, and failures are reported plainly', async () => {
+  const calls = [];
+  let outcome = 'ok';
+  const jf = {
+    jellyfinEnabled: true,
+    setJellyfin: async (username, password) => {
+      calls.push([username, password]);
+      if (outcome === 'fail') throw new Error('Jellyfin answered 500');
+    },
+  };
+  const t = await start(async (account, password) => (password === undefined ? SECRET_PASSWORD : null), jf);
+  try {
+    const csrf = await t.token();
+    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), /use it for my Jellyfin account/);
+
+    // chosen password -> same one in Jellyfin
+    let res = await t.post(csrf, t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG, jellyfin: 'on' });
+    assert.equal(res.status, 200);
+    let text = await res.text();
+    assert.match(text, /Jellyfin password is now the same/);
+    assert.ok(!text.includes(STRONG));
+    assert.deepEqual(calls, [['andrew', STRONG]]);
+    assert.ok(t.logs.some((l) => l.includes('"event":"jellyfin"') && l.includes('"result":"ok"')));
+    assert.ok(!t.logs.some((l) => l.includes(STRONG)));
+  } finally {
+    t.close();
+  }
+
+  const t2 = await start(async () => SECRET_PASSWORD, jf);
+  try {
+    // unticked box -> Jellyfin untouched
+    calls.length = 0;
+    let res = await t2.post(await t2.token(), t2.headers(), { mode: 'random' });
+    assert.equal(res.status, 200);
+    assert.equal(calls.length, 0);
+  } finally {
+    t2.close();
+  }
+
+  const t3 = await start(async () => SECRET_PASSWORD, jf);
+  try {
+    // generated password -> same one in Jellyfin; if Jellyfin fails the file server change still stands
+    calls.length = 0;
+    outcome = 'fail';
+    const res = await t3.post(await t3.token(), t3.headers(), { mode: 'random', jellyfin: 'on' });
+    assert.equal(res.status, 200);
+    const text = await res.text();
+    assert.match(text, new RegExp(SECRET_PASSWORD));
+    assert.match(text, /Jellyfin could not be updated/);
+    assert.deepEqual(calls, [['andrew', SECRET_PASSWORD]]);
+    assert.ok(!t3.logs.some((l) => l.includes(SECRET_PASSWORD)));
+  } finally {
+    t3.close();
+  }
+});
+
+test('with Jellyfin not configured there is no checkbox and nothing is sent', async () => {
+  const calls = [];
+  const t = await start(async () => SECRET_PASSWORD, { jellyfinEnabled: false, setJellyfin: async (...a) => calls.push(a) });
+  try {
+    assert.ok(!(await (await fetch(`${t.base}/`, { headers: t.headers() })).text()).includes('Jellyfin'));
+    const res = await t.post(await t.token(), t.headers(), { mode: 'random', jellyfin: 'on' });
+    assert.equal(res.status, 200);
+    assert.equal(calls.length, 0);
   } finally {
     t.close();
   }
