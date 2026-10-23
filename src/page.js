@@ -43,6 +43,8 @@ const jellyfinLine = (state) =>
   ({
     ok: ok('Jellyfin password changed'),
     failed: bad('Jellyfin password not changed. Jellyfin still has your old one. Try again in a few minutes, or ask the person who runs the server.'),
+    rejected: bad('Jellyfin password not changed. Jellyfin did not accept the new password. Try again, or ask the person who runs the server.'),
+    unconfirmed: bad('Jellyfin password could not be checked. Try signing in to Jellyfin with the new password. If it does not work, reset again.'),
     refused: bad('Jellyfin password not changed. That account cannot be changed from here.'),
   })[state] ?? '';
 

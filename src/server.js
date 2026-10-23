@@ -5,7 +5,7 @@ import { loadConfig } from './config.js';
 import { createCooldown, createCsrf, identify, sameOrigin } from './guard.js';
 import { MAX_LENGTH, checkPassword } from './policy.js';
 import { render } from './page.js';
-import { JellyfinRefusedError, setJellyfinPassword } from './jellyfin.js';
+import { JellyfinRefusedError, JellyfinRejectedError, setJellyfinPassword } from './jellyfin.js';
 import { RefusedError, resetPassword } from './truenas.js';
 
 const MAX_BODY = 2048;
@@ -103,10 +103,9 @@ export function createApp(config, deps = {}) {
           let jellyfin = 'skipped';
           if (jellyfinEnabled) {
             try {
-              await setJellyfin(who.user, chosen ?? password);
-              jellyfin = 'ok';
+              jellyfin = (await setJellyfin(who.user, chosen ?? password)) === 'unconfirmed' ? 'unconfirmed' : 'ok';
             } catch (error) {
-              jellyfin = error instanceof JellyfinRefusedError ? 'refused' : 'failed';
+              jellyfin = error instanceof JellyfinRefusedError ? 'refused' : error instanceof JellyfinRejectedError ? 'rejected' : 'failed';
             }
             log({ event: 'jellyfin', user: who.user, result: jellyfin });
           }

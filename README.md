@@ -18,7 +18,7 @@ dependencies beyond Node.js and is meant to sit behind a reverse proxy that does
 
 Set `JELLYFIN_URL` and `JELLYFIN_API_KEY` and the page tells people that both passwords change together (there is no tick box). After the
 file server change succeeds, the same password (chosen or generated) is set on the Jellyfin account whose name equals the
-sign-in name. Administrator and disabled Jellyfin accounts are refused. If Jellyfin fails, the file server password has
+sign-in name. Administrator and disabled Jellyfin accounts are refused. Jellyfin answering "success" is not trusted: the service then signs in as that user with the new password to prove it works (and signs that session out again). The page only shows a tick when that check passes; if Jellyfin rejects the password it says so, and if the check cannot be made it says it could not be checked. If Jellyfin fails, the file server password has
 still changed and the page says so. **Jellyfin API keys are not scoped: the key is a full Jellyfin administrator**, which is
 why this is off unless you configure it.
 

@@ -270,3 +270,23 @@ test('a refused Jellyfin account is reported on its own line, after the file ser
     t.close();
   }
 });
+
+test('the page only ticks Jellyfin when the sign-in check passed', async () => {
+  const { JellyfinRejectedError } = await import('../src/jellyfin.js');
+  const cases = [
+    [async () => 'ok', /&#10003; Jellyfin password changed/],
+    [async () => 'unconfirmed', /Jellyfin password could not be checked/],
+    [async () => { throw new JellyfinRejectedError('no'); }, /Jellyfin did not accept the new password/],
+  ];
+  for (const [setJellyfin, expected] of cases) {
+    const t = await start(async () => null, { jellyfinEnabled: true, setJellyfin });
+    try {
+      const text = await (await t.post(await t.token(), t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG })).text();
+      assert.match(text, expected);
+      assert.match(text, /&#10003; File Server password changed/);
+      if (!/&#10003; Jellyfin/.test(String(expected))) assert.ok(!text.includes('&#10003; Jellyfin'));
+    } finally {
+      t.close();
+    }
+  }
+});
