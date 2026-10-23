@@ -24,12 +24,10 @@ why this is off unless you configure it.
 
 ## Password rules (a chosen password)
 
-At least 14 characters mixing three of lower case, upper case, numbers and symbols, **or** a passphrase of 20 or more
-characters (no mixing needed); at most 128; no space at either end or control characters; at least 8 different
-characters; no run of four identical characters; no sequence of four (`1234`, `abcd`, `qwer`, `zxcv`); not the sign-in
-name or file server account name; not a common password (a built-in list, also with letter swaps such as `P@ssw0rd`
-and numbers added on the end). The checks run on the server; a refused password is never echoed back. TrueNAS may
-apply its own rules on top.
+At least 14 characters using at least three of lower case, upper case, numbers and symbols; not a common password (a
+built-in list, also with letter swaps such as `P@ssw0rd` and numbers added on the end); not the sign-in name or file
+server account name. Quietly, for safety, at most 128 characters and no control characters. The checks run on the
+server; a refused password is never echoed back. TrueNAS may apply its own rules on top.
 
 ## Safeguards
 

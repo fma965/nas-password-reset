@@ -10,44 +10,44 @@ const bad = (password, pattern) => {
   if (pattern) assert.ok(problems.some((p) => pattern.test(p)), `expected ${pattern} in ${JSON.stringify(problems)}`);
 };
 
-test('accepts strong passwords and long passphrases', () => {
+test('accepts 14 or more characters that use three of the four types', () => {
   ok('Tr1cky-Harbour-Lamp!');
   ok('k9#Vm2$xQ7!pL4zR');
-  ok('correct horse battery staple');
-  ok('purple-river-over-the-hill-again');
+  ok('lower-UPPER-9-abc'); // lower, upper, number, symbol
+  ok('lowerUPPERnumber99'); // lower, upper, number
 });
 
-test('refuses short passwords and weak mixes', () => {
+test('refuses fewer than 14 characters', () => {
   bad('Ab1!xY', /at least 14/);
-  ok('onlylowercaseletters'); // 20 characters or more counts as a passphrase and needs no mixing
-  bad('abcdefghijklm', /at least 14/);
+  bad('Abcdef1!ghijk', /at least 14/); // 13 characters
 });
 
-test('a 14 to 19 character password needs three character types', () => {
-  bad('alllowercaseonly', /Mix at least three/);
-  bad('lowerANDUPPERonly', /Mix at least three/);
-  ok('lower-UPPER-9-abc');
+test('refuses fewer than three character types, however long', () => {
+  bad('alllowercaseonlyletters', /three of/);
+  bad('lowerANDUPPERonlyletters', /three of/);
+  bad('12345678901234567890', /three of/);
 });
 
 test('refuses common passwords, including swapped letters and tacked-on numbers', () => {
   bad('Password123456!', /common/);
   bad('P@ssw0rd2024!!!!', /common/);
-  bad('letmeinletmein1!A', /common/);
-  bad('1qaz2wsx3edc4rfv', /sequence|common|qwer/);
+  bad('Letmein1Letmein1!', /common/);
 });
 
-test('refuses runs, sequences and few distinct characters', () => {
-  bad('Xk9!aaaaPm2#Lq7z', /four of the same/);
-  bad('Zq!1234wMx$Lp8vR', /runs such as/);
-  bad('Zq!qwerWMx$Lp8vR', /runs such as/);
-  bad('aAaAaAaAaAaAaAaA1', /different characters/);
-});
-
-test('refuses the user name, spaces at the ends, control characters and overlong passwords', () => {
+test('refuses the user name, wherever it appears and in any case', () => {
   bad('Andrew-Lamp-Harbour9!', /user name/);
-  bad(' Tr1cky-Harbour-Lamp!', /space at the start/);
+  bad('Zq9!Lp8vRxANDREWmq', /user name/);
+});
+
+test('quiet safety limits: control characters and overlong input', () => {
   bad('Tr1cky-Harbour\u0007-Lamp!', /control/);
   bad('Aa1!'.repeat(40), /at most 128/);
   assert.deepEqual(checkPassword('', { names }), ['Enter a password']);
   assert.deepEqual(checkPassword(undefined, { names }), ['Enter a password']);
+});
+
+test('the old extra rules are gone: runs, sequences, edge spaces and short variety are allowed', () => {
+  ok('Xk9!aaaaPm2#Lq7z');
+  ok('Zq!1234wMx$Lp8vR');
+  ok(' Tr1cky-Harbour-Lamp! ');
 });
