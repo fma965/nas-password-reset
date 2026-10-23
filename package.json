@@ -1,6 +1,6 @@
 {
   "name": "nas-password-reset",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A small page that lets a signed-in housemate reset their own file server (TrueNAS) password",
   "license": "MIT",
   "private": true,

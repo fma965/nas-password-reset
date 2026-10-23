@@ -26,7 +26,7 @@ h2{font-size:1rem;margin:20px 0 8px}label{display:block;margin:10px 0 4px;font-w
 ul{margin:8px 0 12px;padding-left:20px}li{margin:2px 0}.error{background:#fde8e8;color:#8a1c1c;border-radius:8px;padding:10px 12px;margin:0 0 12px}
 @media (prefers-color-scheme:dark){.error{background:#3d1d1d;color:#f3a6a6}}hr{border:0;border-top:1px solid var(--line);margin:20px 0}.row{margin:10px 0}`;
 
-const APP_FOOTER = `File server password reset v${VERSION}`;
+const APP_FOOTER = `Password Reset Procedure v${VERSION}`;
 
 function shell(title, body, nonce, script = '') {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -57,8 +57,8 @@ export function render(state, ctx) {
       return shell(
         title,
         `<h1>${esc(title)}</h1>
-<p>You are signed in as <strong>${esc(ctx.user)}</strong>. This sets a new password for the file server account <strong>${esc(ctx.nasUser)}</strong>${ctx.jellyfin ? ' and for your <strong>Jellyfin</strong> account' : ''}.</p>
-<p class="note">${ctx.jellyfin ? 'Both passwords change together and become the same. Your old ones stop working straight away.' : 'Your old password stops working straight away.'} The network drive${ctx.jellyfin ? ' and Jellyfin' : ''} will ask for the new one.</p>
+<p>This will reset the password for <strong>${esc(ctx.nasUser)}</strong>. This password is used for the File Server (SMB)${ctx.jellyfin ? ' and Jellyfin/Seerr' : ''}.</p>
+<p class="note">Your old password stops working straight away. Use the new one the next time you are asked to sign in.</p>
 ${problems}
 <h2>Choose your own</h2>
 <form method="post" action="/reset" autocomplete="off"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="custom">
@@ -66,12 +66,12 @@ ${problems}
 <label for="confirm">Confirm new password</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
 <div class="row"><label><input type="checkbox" id="show"> Show what I type</label></div>
 <ul class="muted">${REQUIREMENTS.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
-<button type="submit">${ctx.jellyfin ? 'Set my file server and Jellyfin password' : 'Set my password'}</button></form>
+<button type="submit">Reset Password</button></form>
 <hr>
 <h2>Or have one made for you</h2>
 <p class="muted">A long random password, shown once. Save it in your password manager.</p>
 <form method="post" action="/reset"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="random">
-<button type="submit">${ctx.jellyfin ? 'Generate one for my file server and Jellyfin' : 'Generate a password for me'}</button></form>
+<button type="submit">Set Random Password</button></form>
 ${help(config)}`,
         nonce,
         `document.getElementById('show').onchange=(e)=>{for(const id of ['password','confirm'])document.getElementById(id).type=e.target.checked?'text':'password'}`,

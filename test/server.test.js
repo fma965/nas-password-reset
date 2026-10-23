@@ -60,7 +60,7 @@ test('only a signed-in, listed, recent user sees the form', async () => {
     const ok = await fetch(`${t.base}/`, { headers: t.headers() });
     assert.equal(ok.status, 200);
     const okText = await ok.text();
-    assert.match(okText, /Generate a password for me/);
+    assert.match(okText, /Set Random Password/);
     assert.match(okText, /Confirm new password/);
     assert.equal((await fetch(`${t.base}/healthz`)).status, 200);
     assert.equal((await fetch(`${t.base}/nope`)).status, 404);
@@ -183,7 +183,7 @@ test('with Jellyfin switched on, the same password is set there too, and failure
   const t = await start(async (account, password) => (password === undefined ? SECRET_PASSWORD : null), jf);
   try {
     const csrf = await t.token();
-    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), /and for your <strong>Jellyfin<\/strong> account/);
+    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), /File Server \(SMB\) and Jellyfin\/Seerr/);
 
     // chosen password -> same one in Jellyfin
     let res = await t.post(csrf, t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG });

@@ -35,7 +35,7 @@ export function loadConfig(env = process.env) {
     authTimeHeader: (env.AUTH_TIME_HEADER ?? 'remote-auth-time').toLowerCase(),
     jellyfinUrl: env.JELLYFIN_URL ?? '',
     jellyfinApiKey: env.JELLYFIN_API_KEY ?? '',
-    appName: env.APP_NAME ?? 'File server password',
+    appName: env.APP_NAME ?? 'Password Reset Procedure',
     helpUrl: env.HELP_URL ?? '',
   });
 }
