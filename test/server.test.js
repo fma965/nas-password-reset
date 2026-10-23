@@ -56,7 +56,7 @@ test('only a signed-in, listed, recent user sees the form', async () => {
     assert.equal((await fetch(`${t.base}/`, { headers: t.headers('scott') })).status, 403);
     const stale = await fetch(`${t.base}/`, { headers: t.headers('andrew', 4000) });
     assert.equal(stale.status, 403);
-    assert.match(await stale.text(), /Sign in again/);
+    assert.match(await stale.text(), /confirm it is you with your passkey/);
     const ok = await fetch(`${t.base}/`, { headers: t.headers() });
     assert.equal(ok.status, 200);
     const okText = await ok.text();

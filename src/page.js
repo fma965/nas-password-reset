@@ -87,7 +87,12 @@ ${problems}
       );
     }
     case 'stale-login':
-      return page(config, nonce, 'Sign in again', `<p>A password reset needs a fresh sign-in.</p><p><a class="btn" href="/logout">Sign in again</a></p>`);
+      return page(
+        config,
+        nonce,
+        'Confirm it is you',
+        `<p>For your security, confirm it is you with your passkey before you reset your password.</p><p><a class="btn" href="/logout">Confirm with passkey</a></p>`,
+      );
     case 'not-allowed':
       return page(config, nonce, 'Not available', '<p>This page is not available for your account.</p><p>Ask the person who runs the server.</p>');
     case 'no-user':
