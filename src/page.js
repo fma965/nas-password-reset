@@ -1,4 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { REQUIREMENTS } from './policy.js';
+
+// The version shown in the footer comes from package.json, which is also the release tag.
+export const VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+  } catch {
+    return 'unknown';
+  }
+})();
 
 const esc = (value) =>
   String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -11,14 +21,16 @@ main{width:100%;max-width:30rem;background:var(--card);border:1px solid var(--li
 h1{font-size:1.25rem;margin:0 0 12px}p{margin:0 0 12px}.note{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:10px 12px}
 button,.btn{font:inherit;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;text-decoration:none;display:inline-block}
 code{display:block;font:1.15rem ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin:8px 0 12px;word-break:break-all;user-select:all}
-.muted{opacity:.75;font-size:.9rem}
+.muted{opacity:.75;font-size:.9rem}footer{margin-top:20px;text-align:center;font-size:.8rem;opacity:.6}
 h2{font-size:1rem;margin:20px 0 8px}label{display:block;margin:10px 0 4px;font-weight:600}input[type=password],input[type=text]{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
 ul{margin:8px 0 12px;padding-left:20px}li{margin:2px 0}.error{background:#fde8e8;color:#8a1c1c;border-radius:8px;padding:10px 12px;margin:0 0 12px}
 @media (prefers-color-scheme:dark){.error{background:#3d1d1d;color:#f3a6a6}}hr{border:0;border-top:1px solid var(--line);margin:20px 0}.row{margin:10px 0}`;
 
+const APP_FOOTER = `File server password reset v${VERSION}`;
+
 function shell(title, body, nonce, script = '') {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title><style nonce="${nonce}">${STYLE}</style></head><body><main>${body}</main>${
+<title>${esc(title)}</title><style nonce="${nonce}">${STYLE}</style></head><body><main>${body}<footer>${esc(APP_FOOTER)}</footer></main>${
     script ? `<script nonce="${nonce}">${script}</script>` : ''
   }</body></html>`;
 }

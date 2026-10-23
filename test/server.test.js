@@ -238,3 +238,15 @@ test('with Jellyfin not configured there is no checkbox and nothing is sent', as
     t.close();
   }
 });
+
+test('the footer shows the version from package.json', async () => {
+  const { VERSION } = await import('../src/page.js');
+  const { version } = JSON.parse((await import('node:fs')).readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(VERSION, version);
+  const t = await start(async () => SECRET_PASSWORD);
+  try {
+    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), new RegExp(`<footer>[^<]*v${version.replace(/\./g, '\\.')}</footer>`));
+  } finally {
+    t.close();
+  }
+});
