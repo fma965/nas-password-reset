@@ -183,7 +183,7 @@ test('with Jellyfin switched on, the same password is set there too, and failure
   const t = await start(async (account, password) => (password === undefined ? SECRET_PASSWORD : null), jf);
   try {
     const csrf = await t.token();
-    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), /File Server \(SMB\) and Jellyfin\/Seerr/);
+    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), /<li>File Server \(SMB \/ Network Drive\)<\/li><li>Jellyfin \(Media Server\)<\/li><li>Seerr \(Media Requests\)<\/li>/);
 
     // chosen password -> same one in Jellyfin
     let res = await t.post(csrf, t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG });
@@ -230,7 +230,11 @@ test('with Jellyfin not configured there is no checkbox and nothing is sent', as
   const calls = [];
   const t = await start(async () => SECRET_PASSWORD, { jellyfinEnabled: false, setJellyfin: async (...a) => calls.push(a) });
   try {
-    assert.ok(!(await (await fetch(`${t.base}/`, { headers: t.headers() })).text()).includes('Jellyfin'));
+    const form = await (await fetch(`${t.base}/`, { headers: t.headers() })).text();
+    assert.ok(!form.includes('Jellyfin') && !form.includes('Seerr'));
+    assert.match(form, /<li>File Server \(SMB \/ Network Drive\)<\/li><\/ul>/);
+    assert.ok(!form.includes('old password stops'));
+    assert.match(form, /<hr>\s*<h2>Choose a password<\/h2>/);
     const res = await t.post(await t.token(), t.headers(), { mode: 'random' });
     assert.equal(res.status, 200);
     assert.equal(calls.length, 0);

@@ -68,9 +68,10 @@ export function render(state, ctx) {
         nonce,
         'Reset your password',
         `<p>This will reset the password for <strong>${esc(ctx.nasUser)}</strong>.</p>
-<p>This password is used for the File Server (SMB)${ctx.jellyfin ? ' and Jellyfin/Seerr' : ''}.</p>
-<p>Your old password stops working straight away.</p>
+<p>This password is used for the following services:</p>
+<ul><li>File Server (SMB / Network Drive)</li>${ctx.jellyfin ? '<li>Jellyfin (Media Server)</li><li>Seerr (Media Requests)</li>' : ''}</ul>
 ${problems}
+<hr>
 <h2>Choose a password</h2>
 <form method="post" action="/reset" autocomplete="off"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="custom">
 <label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
