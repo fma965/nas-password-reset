@@ -1,6 +1,7 @@
-// Resets one file server account's password through the TrueNAS API (JSON-RPC over a websocket). The API key it
-// uses should hold only the ACCOUNT_WRITE role (plus ACCOUNT_READ). It can only be used on the account it was
-// asked for, which the caller has already checked against its allowlist.
+// Resets one file server account's password through the TrueNAS API (JSON-RPC over a websocket). Without `password`
+// TrueNAS generates one and it is returned; with `password` (already checked by the caller) that one is set and null
+// is returned. The API key it uses should hold only the ACCOUNT_WRITE role (plus ACCOUNT_READ). It can only be used
+// on the account it was asked for, which the caller has already checked against its allowlist.
 
 export class RefusedError extends Error {}
 
@@ -12,7 +13,7 @@ const call = (ws, pending, nextId) => (method, params = []) =>
   });
 
 export async function resetPassword(
-  { url, apiKey, username, insecure = false, timeoutMs = 15000 },
+  { url, apiKey, username, password: chosen, insecure = false, timeoutMs = 15000 },
   WebSocketImpl = globalThis.WebSocket,
 ) {
   // The NAS has a self-signed certificate. This process only talks to the NAS (its network policy allows nothing else).
@@ -61,6 +62,10 @@ export async function resetPassword(
     if (account.locked === true || account.smb === false) throw new RefusedError('That account cannot be reset here');
     if (Array.isArray(account.roles) && account.roles.length > 0) throw new RefusedError('That account cannot be reset here');
 
+    if (typeof chosen === 'string') {
+      await rpc('user.update', [account.id, { password: chosen }]);
+      return null;
+    }
     const updated = await rpc('user.update', [account.id, { random_password: true }]);
     const password = updated?.password;
     if (typeof password !== 'string' || password.length < 8) throw new Error('The file server did not return a password');

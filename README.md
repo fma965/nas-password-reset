@@ -10,15 +10,25 @@ dependencies beyond Node.js and is meant to sit behind a reverse proxy that does
    only be reachable through that proxy**.
 2. The service checks that the user is on its allowlist (`USER_MAP`) and that the sign-in is recent
    (`MAX_AUTH_AGE_SECONDS`, default 5 minutes), then shows a button.
-3. Pressing it connects to the TrueNAS API with a service key and runs `user.update` with `random_password: true`
-   for the mapped account. TrueNAS generates the password and returns it. The page shows it once.
+3. They either **choose their own** password (typed twice) or press **Generate**. Either way the service connects to
+   the TrueNAS API with a service key and runs `user.update` for the mapped account: with the chosen `password`, or
+   with `random_password: true`, in which case TrueNAS generates the password and the page shows it once.
+
+## Password rules (a chosen password)
+
+At least 14 characters mixing three of lower case, upper case, numbers and symbols, **or** a passphrase of 20 or more
+characters (no mixing needed); at most 128; no space at either end or control characters; at least 8 different
+characters; no run of four identical characters; no sequence of four (`1234`, `abcd`, `qwer`, `zxcv`); not the sign-in
+name or file server account name; not a common password (a built-in list, also with letter swaps such as `P@ssw0rd`
+and numbers added on the end). The checks run on the server; a refused password is never echoed back. TrueNAS may
+apply its own rules on top.
 
 ## Safeguards
 
 - The account to reset comes from the proxy's `Remote-User` header and the allowlist, never from the request.
 - Refuses accounts that are built-in, not local, locked, without SMB access, or that carry any API roles (admins).
 - A form token tied to the user, a same-origin check, one reset per account per `COOLDOWN_SECONDS`, one at a time.
-- The password is only in the response; it is never logged. Security headers and a nonce-based CSP on every page.
+- A generated password is only in the response, and a chosen one is never shown again; neither is ever logged. Security headers and a nonce-based CSP on every page.
 - Give the TrueNAS key only the `ACCOUNT_READ` and `ACCOUNT_WRITE` roles (a dedicated user in a privilege that has
   just those). Tested: such a key can run `user.update` but not read pools or shares. **It can still reset any
   local account, including an admin's**, so turn on two-factor for the admin accounts and keep the allowlist short.

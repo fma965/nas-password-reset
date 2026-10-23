@@ -20,12 +20,14 @@ const config = {
 async function start(reset) {
   const logs = [];
   const resets = [];
+  const lastPassword = { value: undefined };
   const handler = createApp(config, {
     now: () => NOW,
     log: (entry) => logs.push(JSON.stringify(entry)),
-    reset: async (account) => {
-      resets.push(account);
-      return reset(account);
+    reset: async (account, password) => {
+      resets.push(password === undefined ? account : `${account}:custom`);
+      lastPassword.value = password;
+      return reset(account, password);
     },
   });
   const server = createServer(handler);
@@ -37,13 +39,13 @@ async function start(reset) {
     'sec-fetch-site': 'same-origin',
   });
   const token = async (h = headers()) => /name="csrf" value="([^"]+)"/.exec(await (await fetch(`${base}/`, { headers: h })).text())[1];
-  const post = (csrf, h = headers()) =>
+  const post = (csrf, h = headers(), fields = {}) =>
     fetch(`${base}/reset`, {
       method: 'POST',
       headers: { ...h, 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ csrf }).toString(),
+      body: new URLSearchParams({ csrf, ...fields }).toString(),
     });
-  return { base, headers, token, post, logs, resets, close: () => server.close() };
+  return { base, headers, token, post, logs, resets, lastPassword, close: () => server.close() };
 }
 
 test('only a signed-in, listed, recent user sees the form', async () => {
@@ -56,7 +58,9 @@ test('only a signed-in, listed, recent user sees the form', async () => {
     assert.match(await stale.text(), /Sign in again/);
     const ok = await fetch(`${t.base}/`, { headers: t.headers() });
     assert.equal(ok.status, 200);
-    assert.match(await ok.text(), /Reset my file server password/);
+    const okText = await ok.text();
+    assert.match(okText, /Generate a password for me/);
+    assert.match(okText, /Confirm new password/);
     assert.equal((await fetch(`${t.base}/healthz`)).status, 200);
     assert.equal((await fetch(`${t.base}/nope`)).status, 404);
     assert.equal((await fetch(`${t.base}/reset`)).status, 404);
@@ -105,6 +109,61 @@ test('a refused or failed reset changes nothing and does not start the cooldown'
     mode = 'ok';
     assert.equal((await t.post(await t.token())).status, 200);
     assert.equal(t.resets.length, 3);
+  } finally {
+    t.close();
+  }
+});
+
+const STRONG = 'Tr1cky-Harbour-Lamp!';
+
+test('a chosen password is checked, confirmed, set, and never shown or logged', async () => {
+  const t = await start(async () => null);
+  try {
+    const csrf = await t.token();
+    const custom = (fields) => t.post(csrf, t.headers(), { mode: 'custom', ...fields });
+
+    // does not match
+    let res = await custom({ password: STRONG, confirm: STRONG + 'x' });
+    assert.equal(res.status, 422);
+    let text = await res.text();
+    assert.match(text, /do not match/);
+    assert.ok(!text.includes(STRONG), 'a password must not be echoed back');
+
+    // weak and common
+    res = await custom({ password: 'Password123456!', confirm: 'Password123456!' });
+    assert.equal(res.status, 422);
+    assert.match(await res.text(), /common password/);
+    res = await custom({ password: 'short', confirm: 'short' });
+    assert.equal(res.status, 422);
+    assert.match(await res.text(), /at least 14/);
+    assert.equal(t.resets.length, 0, 'nothing is sent to the NAS for a refused password');
+
+    // good
+    res = await custom({ password: STRONG, confirm: STRONG });
+    assert.equal(res.status, 200);
+    text = await res.text();
+    assert.match(text, /Password changed/);
+    assert.ok(!text.includes(STRONG), 'the chosen password is not shown again');
+    assert.deepEqual(t.resets, ['andrew:custom']);
+    assert.equal(t.lastPassword.value, STRONG);
+    assert.ok(!t.logs.some((line) => line.includes(STRONG)), 'the password must never be logged');
+    assert.ok(t.logs.some((line) => line.includes('"mode":"custom"')));
+
+    // the cooldown now applies to both modes
+    assert.equal((await custom({ password: STRONG + '!', confirm: STRONG + '!' })).status, 429);
+    assert.equal((await t.post(csrf)).status, 429);
+  } finally {
+    t.close();
+  }
+});
+
+test('a password that contains the user name is refused', async () => {
+  const t = await start(async () => null);
+  try {
+    const res = await t.post(await t.token(), t.headers(), { mode: 'custom', password: 'Andrew-Lamp-Harbour9!', confirm: 'Andrew-Lamp-Harbour9!' });
+    assert.equal(res.status, 422);
+    assert.match(await res.text(), /user name/);
+    assert.equal(t.resets.length, 0);
   } finally {
     t.close();
   }

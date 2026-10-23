@@ -69,3 +69,11 @@ test('gives up when the NAS does not answer', async () => {
     /did not answer in time/,
   );
 });
+
+test('sets a chosen password with user.update and returns nothing', async () => {
+  const calls = [];
+  const result = await resetPassword({ ...base, password: 'Chosen-Passw0rd-Here!' }, fakeSocket(answers({ 'user.update': { id: 7 } }), calls));
+  assert.equal(result, null);
+  assert.deepEqual(calls.at(-1).params, [7, { password: 'Chosen-Passw0rd-Here!' }]);
+  assert.ok(!JSON.stringify(calls).includes('random_password'));
+});

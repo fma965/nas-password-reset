@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { loadConfig } from './config.js';
 import { createCooldown, createCsrf, identify, sameOrigin } from './guard.js';
+import { MAX_LENGTH, checkPassword } from './policy.js';
 import { render } from './page.js';
 import { RefusedError, resetPassword } from './truenas.js';
 
@@ -32,8 +33,8 @@ export function createApp(config, deps = {}) {
   const inFlight = new Set();
   const reset =
     deps.reset ??
-    ((username) =>
-      resetPassword({ url: config.truenasUrl, apiKey: config.truenasApiKey, username, insecure: config.truenasInsecure }));
+    ((username, password) =>
+      resetPassword({ url: config.truenasUrl, apiKey: config.truenasApiKey, username, password, insecure: config.truenasInsecure }));
   const log = deps.log ?? ((entry) => console.log(JSON.stringify({ time: new Date().toISOString(), ...entry })));
   const now = deps.now ?? (() => Date.now());
 
@@ -65,7 +66,7 @@ export function createApp(config, deps = {}) {
         if (!who.ok) return denied(res, who);
         const wait = cooldown.remaining(who.user, now());
         if (wait > 0) return send(res, 200, 'cooldown', { seconds: wait });
-        return send(res, 200, 'ready', { user: who.user, nasUser: who.nasUser, token: csrf.issue(who.user, now()) });
+        return send(res, 200, 'ready', { user: who.user, nasUser: who.nasUser, token: csrf.issue(who.user, now()), maxLength: MAX_LENGTH });
       }
       if (req.method === 'POST' && path === '/reset') {
         if (!sameOrigin(req.headers)) return send(res, 403, 'failed');
@@ -75,16 +76,28 @@ export function createApp(config, deps = {}) {
         if (!csrf.verify(who.user, form.get('csrf'), now())) return send(res, 403, 'failed');
         const wait = cooldown.remaining(who.user, now());
         if (wait > 0) return send(res, 429, 'cooldown', { seconds: wait });
+        const mode = form.get('mode') === 'custom' ? 'custom' : 'random';
+        let chosen;
+        if (mode === 'custom') {
+          const password = form.get('password') ?? '';
+          const problems = checkPassword(password, { names: [who.user, who.nasUser] });
+          if (password !== (form.get('confirm') ?? '')) problems.unshift('The two passwords do not match');
+          if (problems.length > 0) {
+            // Never echo a password back: the form comes back empty with the reasons.
+            return send(res, 422, 'ready', { user: who.user, nasUser: who.nasUser, token: csrf.issue(who.user, now()), maxLength: MAX_LENGTH, problems });
+          }
+          chosen = password;
+        }
         if (inFlight.has(who.user)) return send(res, 429, 'cooldown', { seconds: 60 });
         inFlight.add(who.user);
         try {
-          const password = await reset(who.nasUser);
+          const password = await reset(who.nasUser, chosen);
           cooldown.mark(who.user, now());
-          log({ event: 'reset', user: who.user, account: who.nasUser, result: 'ok' });
-          return send(res, 200, 'done', { nasUser: who.nasUser, password });
+          log({ event: 'reset', user: who.user, account: who.nasUser, mode, result: 'ok' });
+          return mode === 'custom' ? send(res, 200, 'done-custom', { nasUser: who.nasUser }) : send(res, 200, 'done', { nasUser: who.nasUser, password });
         } catch (error) {
           const refused = error instanceof RefusedError;
-          log({ event: 'reset', user: who.user, account: who.nasUser, result: refused ? 'refused' : 'failed', reason: error.message });
+          log({ event: 'reset', user: who.user, account: who.nasUser, mode, result: refused ? 'refused' : 'failed', reason: error.message });
           return send(res, refused ? 403 : 502, refused ? 'refused' : 'failed');
         } finally {
           inFlight.delete(who.user);

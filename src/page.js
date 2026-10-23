@@ -1,3 +1,5 @@
+import { REQUIREMENTS } from './policy.js';
+
 const esc = (value) =>
   String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -9,7 +11,10 @@ main{width:100%;max-width:30rem;background:var(--card);border:1px solid var(--li
 h1{font-size:1.25rem;margin:0 0 12px}p{margin:0 0 12px}.note{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:10px 12px}
 button,.btn{font:inherit;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;text-decoration:none;display:inline-block}
 code{display:block;font:1.15rem ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin:8px 0 12px;word-break:break-all;user-select:all}
-.muted{opacity:.75;font-size:.9rem}`;
+.muted{opacity:.75;font-size:.9rem}
+h2{font-size:1rem;margin:20px 0 8px}label{display:block;margin:10px 0 4px;font-weight:600}input[type=password],input[type=text]{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+ul{margin:8px 0 12px;padding-left:20px}li{margin:2px 0}.error{background:#fde8e8;color:#8a1c1c;border-radius:8px;padding:10px 12px;margin:0 0 12px}
+@media (prefers-color-scheme:dark){.error{background:#3d1d1d;color:#f3a6a6}}hr{border:0;border-top:1px solid var(--line);margin:20px 0}.row{margin:10px 0}`;
 
 function shell(title, body, nonce, script = '') {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -25,16 +30,32 @@ export function render(state, ctx) {
   const { config, nonce } = ctx;
   const title = config.appName;
   switch (state) {
-    case 'ready':
+    case 'ready': {
+      const problems = ctx.problems?.length
+        ? `<div class="error" role="alert"><strong>That password was not accepted:</strong><ul>${ctx.problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>`
+        : '';
       return shell(
         title,
         `<h1>${esc(title)}</h1>
 <p>You are signed in as <strong>${esc(ctx.user)}</strong>. This sets a new password for the file server account <strong>${esc(ctx.nasUser)}</strong>.</p>
 <p class="note">Your current file server password stops working straight away. Anything connected to the network drive will ask for the new one.</p>
-<form method="post" action="/reset"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><button type="submit">Reset my file server password</button></form>
+${problems}
+<h2>Choose your own</h2>
+<form method="post" action="/reset" autocomplete="off"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="custom">
+<label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
+<label for="confirm">Confirm new password</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
+<div class="row"><label><input type="checkbox" id="show"> Show what I type</label></div>
+<ul class="muted">${REQUIREMENTS.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
+<button type="submit">Set my password</button></form>
+<hr>
+<h2>Or have one made for you</h2>
+<p class="muted">A long random password, shown once. Save it in your password manager.</p>
+<form method="post" action="/reset"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="random"><button type="submit">Generate a password for me</button></form>
 ${help(config)}`,
         nonce,
+        `document.getElementById('show').onchange=(e)=>{for(const id of ['password','confirm'])document.getElementById(id).type=e.target.checked?'text':'password'}`,
       );
+    }
     case 'stale-login':
       return shell(
         title,
@@ -56,6 +77,12 @@ ${help(config)}`,
 <p class="muted">This page is not stored. Reloading it will not show the password again.</p>${help(config)}`,
         nonce,
         `document.getElementById('copy').onclick=async(e)=>{try{await navigator.clipboard.writeText(document.getElementById('pw').textContent);e.target.textContent='Copied'}catch{e.target.textContent='Select and copy it'}}`,
+      );
+    case 'done-custom':
+      return shell(
+        title,
+        `<h1>Password changed</h1><p>Your file server password for <strong>${esc(ctx.nasUser)}</strong> is now the one you chose. Use it the next time the network drive asks.</p>${help(config)}`,
+        nonce,
       );
     case 'refused':
       return shell(title, `<h1>This account cannot be reset here</h1><p>Ask the person who runs the server.</p>${help(config)}`, nonce);
