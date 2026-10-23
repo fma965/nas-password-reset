@@ -143,7 +143,7 @@ test('a chosen password is checked, confirmed, set, and never shown or logged', 
     res = await custom({ password: STRONG, confirm: STRONG });
     assert.equal(res.status, 200);
     text = await res.text();
-    assert.match(text, /File Server password changed successfully/);
+    assert.match(text, /File Server password changed/);
     assert.ok(!text.includes(STRONG), 'the chosen password is not shown again');
     assert.deepEqual(t.resets, ['andrew:custom']);
     assert.equal(t.lastPassword.value, STRONG);
@@ -189,7 +189,7 @@ test('with Jellyfin switched on, the same password is set there too, and failure
     let res = await t.post(csrf, t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG });
     assert.equal(res.status, 200);
     let text = await res.text();
-    assert.match(text, /File Server password changed successfully[\s\S]*Jellyfin password changed successfully/);
+    assert.match(text, /File Server password changed[\s\S]*Jellyfin password changed/);
     assert.ok(!text.includes(STRONG));
     assert.deepEqual(calls, [['andrew', STRONG]]);
     assert.ok(t.logs.some((l) => l.includes('"event":"jellyfin"') && l.includes('"result":"ok"')));
@@ -218,7 +218,7 @@ test('with Jellyfin switched on, the same password is set there too, and failure
     assert.equal(res.status, 200);
     const text = await res.text();
     assert.match(text, new RegExp(SECRET_PASSWORD));
-    assert.match(text, /Jellyfin still has your old one/);
+    assert.match(text, /Jellyfin password not changed\. Jellyfin still has your old one/);
     assert.deepEqual(calls, [['andrew', SECRET_PASSWORD]]);
     assert.ok(!t3.logs.some((l) => l.includes(SECRET_PASSWORD)));
   } finally {
@@ -257,7 +257,7 @@ test('a refused Jellyfin account is reported on its own line, after the file ser
   try {
     const res = await t.post(await t.token(), t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG });
     const text = await res.text();
-    assert.match(text, /<p>File Server password changed successfully<\/p><p class="note">Your Jellyfin password was not changed, because that account cannot be changed from here\.<\/p>/);
+    assert.match(text, /&#10003; File Server password changed<\/p><p class="status bad">&#10007; Jellyfin password not changed\. That account cannot be changed from here\.<\/p>/);
     const { render } = await import('../src/page.js');
     const page = render('done-custom', { config: { appName: 'x', helpUrl: 'https://help.example/' }, nonce: 'n', nasUser: 'andrew', jellyfin: 'ok' });
     assert.match(page, /class="muted back"/);
