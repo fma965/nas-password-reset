@@ -101,7 +101,7 @@ export function createApp(config, deps = {}) {
           log({ event: 'reset', user: who.user, account: who.nasUser, mode, result: 'ok' });
           // The file server password is changed. Optionally set the same one on the matching Jellyfin account.
           let jellyfin = 'skipped';
-          if (jellyfinEnabled && form.get('jellyfin') === 'on') {
+          if (jellyfinEnabled) {
             try {
               await setJellyfin(who.user, chosen ?? password);
               jellyfin = 'ok';

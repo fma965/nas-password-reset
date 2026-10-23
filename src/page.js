@@ -23,14 +23,12 @@ function shell(title, body, nonce, script = '') {
   }</body></html>`;
 }
 
-const jellyfinBox = () =>
-  '<div class="row"><label><input type="checkbox" name="jellyfin" checked> Also use it for my Jellyfin account</label></div>';
 
 const jellyfinLine = (state) =>
   ({
-    ok: '<p>Your Jellyfin password is now the same.</p>',
-    failed: '<p class="note">The file server password changed, but Jellyfin could not be updated. Try again in a few minutes, or ask the person who runs the server.</p>',
-    refused: '<p class="note">The file server password changed. Your Jellyfin account cannot be changed from here.</p>',
+    ok: '<p>Your Jellyfin password is now the same new password.</p>',
+    failed: '<p class="note">Your file server password was changed, but your Jellyfin password could not be. Jellyfin still has your old one. Try again in a few minutes, or ask the person who runs the server.</p>',
+    refused: '<p class="note">Your file server password was changed. Your Jellyfin password was not, because that account cannot be changed from here.</p>',
   })[state] ?? '';
 
 const help = (config) => (config.helpUrl ? `<p class="muted"><a href="${esc(config.helpUrl)}">Back to the guides</a></p>` : '');
@@ -47,22 +45,21 @@ export function render(state, ctx) {
       return shell(
         title,
         `<h1>${esc(title)}</h1>
-<p>You are signed in as <strong>${esc(ctx.user)}</strong>. This sets a new password for the file server account <strong>${esc(ctx.nasUser)}</strong>.</p>
-<p class="note">Your current file server password stops working straight away. Anything connected to the network drive will ask for the new one.</p>
+<p>You are signed in as <strong>${esc(ctx.user)}</strong>. This sets a new password for the file server account <strong>${esc(ctx.nasUser)}</strong>${ctx.jellyfin ? ' and for your <strong>Jellyfin</strong> account' : ''}.</p>
+<p class="note">${ctx.jellyfin ? 'Both passwords change together and become the same. Your old ones stop working straight away.' : 'Your old password stops working straight away.'} The network drive${ctx.jellyfin ? ' and Jellyfin' : ''} will ask for the new one.</p>
 ${problems}
 <h2>Choose your own</h2>
 <form method="post" action="/reset" autocomplete="off"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="custom">
 <label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
 <label for="confirm">Confirm new password</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" required maxlength="${esc(ctx.maxLength)}">
 <div class="row"><label><input type="checkbox" id="show"> Show what I type</label></div>
-${ctx.jellyfin ? jellyfinBox() : ''}
 <ul class="muted">${REQUIREMENTS.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
-<button type="submit">Set my password</button></form>
+<button type="submit">${ctx.jellyfin ? 'Set my file server and Jellyfin password' : 'Set my password'}</button></form>
 <hr>
 <h2>Or have one made for you</h2>
 <p class="muted">A long random password, shown once. Save it in your password manager.</p>
 <form method="post" action="/reset"><input type="hidden" name="csrf" value="${esc(ctx.token)}"><input type="hidden" name="mode" value="random">
-${ctx.jellyfin ? jellyfinBox() : ''}<button type="submit">Generate a password for me</button></form>
+<button type="submit">${ctx.jellyfin ? 'Generate one for my file server and Jellyfin' : 'Generate a password for me'}</button></form>
 ${help(config)}`,
         nonce,
         `document.getElementById('show').onchange=(e)=>{for(const id of ['password','confirm'])document.getElementById(id).type=e.target.checked?'text':'password'}`,

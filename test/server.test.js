@@ -183,10 +183,10 @@ test('with Jellyfin switched on, the same password is set there too, and failure
   const t = await start(async (account, password) => (password === undefined ? SECRET_PASSWORD : null), jf);
   try {
     const csrf = await t.token();
-    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), /use it for my Jellyfin account/);
+    assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), /and for your <strong>Jellyfin<\/strong> account/);
 
     // chosen password -> same one in Jellyfin
-    let res = await t.post(csrf, t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG, jellyfin: 'on' });
+    let res = await t.post(csrf, t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG });
     assert.equal(res.status, 200);
     let text = await res.text();
     assert.match(text, /Jellyfin password is now the same/);
@@ -200,11 +200,11 @@ test('with Jellyfin switched on, the same password is set there too, and failure
 
   const t2 = await start(async () => SECRET_PASSWORD, jf);
   try {
-    // unticked box -> Jellyfin untouched
+    // random mode sets Jellyfin too, without any tick box
     calls.length = 0;
     let res = await t2.post(await t2.token(), t2.headers(), { mode: 'random' });
     assert.equal(res.status, 200);
-    assert.equal(calls.length, 0);
+    assert.deepEqual(calls, [['andrew', SECRET_PASSWORD]]);
   } finally {
     t2.close();
   }
@@ -214,11 +214,11 @@ test('with Jellyfin switched on, the same password is set there too, and failure
     // generated password -> same one in Jellyfin; if Jellyfin fails the file server change still stands
     calls.length = 0;
     outcome = 'fail';
-    const res = await t3.post(await t3.token(), t3.headers(), { mode: 'random', jellyfin: 'on' });
+    const res = await t3.post(await t3.token(), t3.headers(), { mode: 'random' });
     assert.equal(res.status, 200);
     const text = await res.text();
     assert.match(text, new RegExp(SECRET_PASSWORD));
-    assert.match(text, /Jellyfin could not be updated/);
+    assert.match(text, /Jellyfin still has your old one/);
     assert.deepEqual(calls, [['andrew', SECRET_PASSWORD]]);
     assert.ok(!t3.logs.some((l) => l.includes(SECRET_PASSWORD)));
   } finally {
@@ -231,7 +231,7 @@ test('with Jellyfin not configured there is no checkbox and nothing is sent', as
   const t = await start(async () => SECRET_PASSWORD, { jellyfinEnabled: false, setJellyfin: async (...a) => calls.push(a) });
   try {
     assert.ok(!(await (await fetch(`${t.base}/`, { headers: t.headers() })).text()).includes('Jellyfin'));
-    const res = await t.post(await t.token(), t.headers(), { mode: 'random', jellyfin: 'on' });
+    const res = await t.post(await t.token(), t.headers(), { mode: 'random' });
     assert.equal(res.status, 200);
     assert.equal(calls.length, 0);
   } finally {
