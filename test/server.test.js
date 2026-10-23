@@ -143,7 +143,7 @@ test('a chosen password is checked, confirmed, set, and never shown or logged', 
     res = await custom({ password: STRONG, confirm: STRONG });
     assert.equal(res.status, 200);
     text = await res.text();
-    assert.match(text, /Password changed/);
+    assert.match(text, /File Server password changed successfully/);
     assert.ok(!text.includes(STRONG), 'the chosen password is not shown again');
     assert.deepEqual(t.resets, ['andrew:custom']);
     assert.equal(t.lastPassword.value, STRONG);
@@ -189,7 +189,7 @@ test('with Jellyfin switched on, the same password is set there too, and failure
     let res = await t.post(csrf, t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG });
     assert.equal(res.status, 200);
     let text = await res.text();
-    assert.match(text, /Jellyfin password is now the same/);
+    assert.match(text, /File Server password changed successfully[\s\S]*Jellyfin password changed successfully/);
     assert.ok(!text.includes(STRONG));
     assert.deepEqual(calls, [['andrew', STRONG]]);
     assert.ok(t.logs.some((l) => l.includes('"event":"jellyfin"') && l.includes('"result":"ok"')));
@@ -246,6 +246,22 @@ test('the footer shows the version from package.json', async () => {
   const t = await start(async () => SECRET_PASSWORD);
   try {
     assert.match(await (await fetch(`${t.base}/`, { headers: t.headers() })).text(), new RegExp(`<footer>[^<]*v${version.replace(/\./g, '\\.')}</footer>`));
+  } finally {
+    t.close();
+  }
+});
+
+test('a refused Jellyfin account is reported on its own line, after the file server success', async () => {
+  const { JellyfinRefusedError } = await import('../src/jellyfin.js');
+  const t = await start(async () => null, { jellyfinEnabled: true, setJellyfin: async () => { throw new JellyfinRefusedError('admin'); } });
+  try {
+    const res = await t.post(await t.token(), t.headers(), { mode: 'custom', password: STRONG, confirm: STRONG });
+    const text = await res.text();
+    assert.match(text, /<p>File Server password changed successfully<\/p><p class="note">Your Jellyfin password was not changed, because that account cannot be changed from here\.<\/p>/);
+    const { render } = await import('../src/page.js');
+    const page = render('done-custom', { config: { appName: 'x', helpUrl: 'https://help.example/' }, nonce: 'n', nasUser: 'andrew', jellyfin: 'ok' });
+    assert.match(page, /class="muted back"/);
+    assert.match(page, /\.back\{margin-top:32px\}/);
   } finally {
     t.close();
   }

@@ -21,7 +21,7 @@ main{width:100%;max-width:30rem;background:var(--card);border:1px solid var(--li
 h1{font-size:1.25rem;margin:0 0 12px}p{margin:0 0 12px}.note{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:10px 12px}
 button,.btn{font:inherit;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;text-decoration:none;display:inline-block}
 code{display:block;font:1.15rem ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin:8px 0 12px;word-break:break-all;user-select:all}
-.muted{opacity:.75;font-size:.9rem}footer{margin-top:20px;text-align:center;font-size:.8rem;opacity:.6}
+.muted{opacity:.75;font-size:.9rem}.back{margin-top:32px}footer{margin-top:20px;text-align:center;font-size:.8rem;opacity:.6}
 h2{font-size:1rem;margin:20px 0 8px}label{display:block;margin:10px 0 4px;font-weight:600}input[type=password],input[type=text]{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
 ul{margin:8px 0 12px;padding-left:20px}li{margin:2px 0}.error{background:#fde8e8;color:#8a1c1c;border-radius:8px;padding:10px 12px;margin:0 0 12px}
 @media (prefers-color-scheme:dark){.error{background:#3d1d1d;color:#f3a6a6}}hr{border:0;border-top:1px solid var(--line);margin:20px 0}.row{margin:10px 0}`;
@@ -38,12 +38,14 @@ function shell(title, body, nonce, script = '') {
 
 const jellyfinLine = (state) =>
   ({
-    ok: '<p>Your Jellyfin password is now the same new password.</p>',
-    failed: '<p class="note">Your file server password was changed, but your Jellyfin password could not be. Jellyfin still has your old one. Try again in a few minutes, or ask the person who runs the server.</p>',
-    refused: '<p class="note">Your file server password was changed. Your Jellyfin password was not, because that account cannot be changed from here.</p>',
+    ok: '<p>Jellyfin password changed successfully</p>',
+    failed: '<p class="note">Your Jellyfin password was not changed. Jellyfin still has your old one. Try again in a few minutes, or ask the person who runs the server.</p>',
+    refused: '<p class="note">Your Jellyfin password was not changed, because that account cannot be changed from here.</p>',
   })[state] ?? '';
 
-const help = (config) => (config.helpUrl ? `<p class="muted"><a href="${esc(config.helpUrl)}">Back to the guides</a></p>` : '');
+const results = (state) => `<p>File Server password changed successfully</p>${jellyfinLine(state)}`;
+
+const help = (config) => (config.helpUrl ? `<p class="muted back"><a href="${esc(config.helpUrl)}">Back to the guides</a></p>` : '');
 
 // state: ready | stale-login | not-allowed | no-user | cooldown | done | refused | failed
 export function render(state, ctx) {
@@ -95,7 +97,7 @@ ${help(config)}`,
         title,
         `<h1>Your new password</h1><p>Use it with the user name <strong>${esc(ctx.nasUser)}</strong>. It is shown <strong>once</strong>: save it in your password manager now.</p>
 <code id="pw">${esc(ctx.password)}</code><button type="button" id="copy">Copy</button>
-${jellyfinLine(ctx.jellyfin)}
+${results(ctx.jellyfin)}
 <p class="muted">This page is not stored. Reloading it will not show the password again.</p>${help(config)}`,
         nonce,
         `document.getElementById('copy').onclick=async(e)=>{try{await navigator.clipboard.writeText(document.getElementById('pw').textContent);e.target.textContent='Copied'}catch{e.target.textContent='Select and copy it'}}`,
@@ -103,7 +105,7 @@ ${jellyfinLine(ctx.jellyfin)}
     case 'done-custom':
       return shell(
         title,
-        `<h1>Password changed</h1><p>Your file server password for <strong>${esc(ctx.nasUser)}</strong> is now the one you chose. Use it the next time the network drive asks.</p>${jellyfinLine(ctx.jellyfin)}${help(config)}`,
+        `<h1>Password changed</h1>${results(ctx.jellyfin)}${help(config)}`,
         nonce,
       );
     case 'refused':
